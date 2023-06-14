@@ -14,7 +14,9 @@ Example usage:
 ```$ python ./powerlifted.py -d ./dev/domains/blocks/domain.pddl -i ./dev/domains/blocks/probBLOCKS-4-0.pddl -s astar -e ff -g  yannakakis --state sparse --use-parameter-seed --build```
 
 
-Here, `--use-parameter-seed` is an optional parameter. When provided, the script would obtain the [parameter seeds](https://github.com/IBM/Parameter-Seed-Set) for each lifted action and use that information to generate successor states. By default, the script solved PDDL task without using the parameter seed information. Currently, the `--use-parameter-seed` flag is only supported for `yannakakis` generator. 
+Here, `--use-parameter-seed` is an optional parameter. When provided, the script would obtain the [parameter seeds](https://github.com/IBM/Parameter-Seed-Set) for each lifted action and use that information to generate successor states. By default, the script solves PDDL task without using the parameter seed information. Currently, the `--use-parameter-seed` flag is only supported for `yannakakis` generator. 
+
+For additional information on other parameters in the script, please consult the documentation for [Powerlifted](https://github.com/abcorrea/powerlifted).
 
 ## Requirements for Planning with Parameter Seeds 
 
@@ -38,8 +40,6 @@ Table size before join: holding : 1
 Table size before join: type@object : 4
 Table size before join: type@object : 4
 ```
-
-
 
 ## Citation
 
