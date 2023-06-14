@@ -99,6 +99,18 @@ def main():
     # Preprocess a dict of supertypes for every type from the TypeGraph
     types_dict = get_types_dict(g)
 
+    seeds, info = {}, {}
+
+    if options.use_parameter_seeds:
+        from pss.parameter_seed_set import get_parameter_seed
+        from tarski.io import PDDLReader
+        reader = PDDLReader(raise_on_error=True)
+        reader.parse_domain(options.domain)
+        tarski_task = reader.parse_instance(options.task)
+        seeds, info = get_parameter_seed(options.domain, options.task, tarski_task, verbose=False)
+        seeds.update({k.upper():v for k, v in seeds.items()})
+        info.update({k.upper():v for k, v in info.items()})
+
     # Sets output file from options
     if os.path.isfile(options.output_file):
         print(
@@ -132,7 +144,9 @@ def main():
 
     print_goal(task, atom_index, object_index, predicate_index)
 
-    print_action_schemas(task, object_index, predicate_index, type_index)
+
+
+    print_action_schemas(task, object_index, predicate_index, type_index, seeds, info)
 
     test_if_experiment(options.test_experiment)
     return
@@ -143,7 +157,7 @@ def transform_into_unit_cost(task):
         action.cost = 1
 
 
-def print_action_schemas(task, object_index, predicate_index, type_index):
+def print_action_schemas(task, object_index, predicate_index, type_index, seeds={},info={}):
     # Action schemas are defined as follow
     # - First, a canary and the number of action schemas
     # - Then a list of action schemas, each one having
@@ -188,12 +202,20 @@ def print_action_schemas(task, object_index, predicate_index, type_index):
                 action.cost = 1
         precond = action.get_action_preconditions
         assert isinstance(action.effects, list)
+        seed_size=""
+        if action.name.upper() in seeds:
+            seed_size = str(len(seeds[action.name.upper()]))
         print(action.name, action.cost, len(list(action.parameters)),
-              len(precond), len(list(action.effects)))
+              len(precond), len(list(action.effects)), seed_size)
         for index, par in enumerate(action.parameters):
             parameter_index[par.name] = index
-            print(par.name, index, type_index[par.type_name])
-        for cond in sorted(precond):
+            is_seed =""
+            if action.name.upper() in seeds:
+                is_seed = 1 if index in seeds[action.name.upper()] else 0
+            print(par.name, index, type_index[par.type_name], is_seed)
+        sorted_precond = sorted(precond)
+        sorted_index = sorted(range(len(precond)),key=precond.__getitem__)
+        for cond in sorted_precond:
             assert isinstance(cond, pddl.Literal)
             args_list = []
             for x in cond.args:
@@ -224,7 +246,16 @@ def print_action_schemas(task, object_index, predicate_index, type_index):
                   int(eff.literal.negated),
                   len(eff.literal.args),
                   ' '.join(i for i in args_list))
-
+        if action.name.upper() in seeds and len(seeds[action.name.upper()]) != len(list(action.parameters)):
+            # info contains parameter_index and precondition which is an LMG.
+            for p_index, p_info in info[action.name.upper()].items():
+                pc_index, arg_index, len_fixed_arg = p_info[0], p_info[1], p_info[2]
+                spc_index = sorted_index.index(pc_index)
+                p_name = action.parameters[p_index].name
+                p_list = []
+                if len_fixed_arg > 0:
+                    p_list = p_info[-len_fixed_arg:]
+                print(p_index, spc_index, arg_index, len_fixed_arg, *p_list )
 
 def print_goal(task, atom_index, object_index, predicate_index):
     # Print canary and the number of atoms in the goal, the output of each

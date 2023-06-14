@@ -12,6 +12,8 @@ class Action(object):
         assert 0 <= num_external_parameters <= len(parameters)
         self.name = name
         self.parameters = parameters
+        self.parameter_index = { parameter.name: index  for index, parameter in enumerate(self.parameters)}
+        self.parameter_type_map = { parameter.name: parameter.type_name  for parameter in self.parameters}
         # num_external_parameters denotes how many of the parameters
         # are "external", i.e., should be part of the grounded action
         # name. Usually all parameters are external, but "invisible"
@@ -22,6 +24,21 @@ class Action(object):
         self.effects = effects
         self.cost = cost
         self.uniquify_variables()  # TODO: uniquify variables in cost?
+
+    def update_parameter_type_map(self, types):
+        preconditions = []
+        # Naive assumption that action.precondition is either a Conjunction, Atom or NegatedAtom @see issue #1
+        if type(self.precondition) == conditions.Conjunction:
+            preconditions = self.precondition.parts
+        elif type(self.precondition) == conditions.Atom or type(self.precondition) == conditions.NegatedAtom:
+            preconditions = [self.precondition]
+        else:
+            print("Precondition type not handles")
+            return
+        for pred in preconditions:
+            if pred.predicate in types:
+                self.parameter_type_map[pred.args[0]] = pred.predicate
+
 
     def __repr__(self):
         return "action_%s" % (self.name)

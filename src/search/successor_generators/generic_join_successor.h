@@ -56,6 +56,10 @@ public:
                                                        const DBState &state,
                                                        std::vector<Table>& tables);
 
+    virtual bool parse_precond_into_join_program_with_seed(const PrecompiledActionData &adata,
+                                                 const DBState &state,
+                                                 std::vector<Table>& tables);
+
     DBState generate_successor(const LiftedOperatorId &op,
                                const ActionSchema& action,
                                const DBState &state) override;
@@ -136,7 +140,7 @@ protected:
 class PrecompiledActionData {
 public:
     PrecompiledActionData() :
-        is_ground(false), statically_inapplicable(false),
+        is_ground(false), statically_inapplicable(false), relevant_LMGs(),
         relevant_precondition_atoms(), fluent_tables(),
         precompiled_db()
     {}
@@ -147,6 +151,10 @@ public:
     //! Whether the schema is statically inapplicable
     bool statically_inapplicable;
 
+    //! Map of precondition and relevant LMGs
+    std::map<int, RelevantLMG> relevant_LMGs;
+
+    //!  relevant precondition atoms
     std::vector<Atom> relevant_precondition_atoms;
 
     //! A list of the indices in `relevant_precondition_atoms` that correspond to fluent atoms,

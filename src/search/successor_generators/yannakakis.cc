@@ -5,6 +5,7 @@
 #include "../database/semi_join.h"
 #include "../database/table.h"
 #include "../task.h"
+#include "../utils/timer.h"
 
 #include <cassert>
 #include <stack>
@@ -210,7 +211,21 @@ Table YannakakisSuccessorGenerator::instantiate(const ActionSchema &action,
     const auto& actiondata = action_data[action.get_index()];
 
     vector<Table> tables;
-    auto res = parse_precond_into_join_program(actiondata, state, tables);
+    utils::Timer parse_join_timer;
+    bool res;
+    if (action.get_relevantLMGs().size() >0){
+        res = parse_precond_into_join_program_with_seed(actiondata, state, tables);
+    }
+    else{
+        res = parse_precond_into_join_program(actiondata, state, tables);
+    }
+
+    for (size_t i = 0; i < tables.size(); ++i) {
+	    cout << "Table size before join: " << actiondata.relevant_precondition_atoms[i].get_name() <<" : "<< tables[i].tuples.size() << endl;
+    }
+    parse_join_timer.stop();
+    cout << "Time to parse join program: " << parse_join_timer() << endl;
+
     if (!res) return Table::EMPTY_TABLE();
 
     assert (!tables.empty());

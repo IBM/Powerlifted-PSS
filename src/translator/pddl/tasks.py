@@ -2,7 +2,7 @@ from __future__ import print_function
 
 from . import axioms
 from . import predicates
-
+from collections import defaultdict
 
 class Task(object):
     def __init__(self, domain_name, task_name, requirements,
@@ -21,6 +21,13 @@ class Task(object):
         self.axioms = axioms
         self.axiom_counter = 0
         self.use_min_cost_metric = use_metric
+        self.type_dict = {t.name: t for t in self.types}
+        self.type_count_map = defaultdict(lambda : 0)
+        self.type_count_map["object"]= len(self.objects)
+        for obj in self.objects:
+                self.type_count_map[obj.type_name]+=1
+                for t in self.type_dict[obj.type_name].supertype_names:
+                    self.type_count_map[t]+=1
 
     def add_axiom(self, parameters, condition):
         name = "new-axiom@%d" % self.axiom_counter

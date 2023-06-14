@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <map>
 class ActionSchema {
 
     std::string name;
@@ -27,7 +27,7 @@ class ActionSchema {
     std::vector<bool> negative_nullary_precond;
     std::vector<bool> positive_nullary_effects;
     std::vector<bool> negative_nullary_effects;
-
+    std::map<int, RelevantLMG> relevantLMGs;
 public:
     explicit ActionSchema(std::string name,
                           int index,
@@ -39,7 +39,8 @@ public:
                           std::vector<bool> positive_nullary_precond,
                           std::vector<bool> negative_nullary_precond,
                           std::vector<bool> positive_nullary_effects,
-                          std::vector<bool> negative_nullary_effects);
+                          std::vector<bool> negative_nullary_effects,
+                          std::map<int, RelevantLMG> relevantLMGs);
 
     const std::string &get_name() const {
         return name;
@@ -89,6 +90,8 @@ public:
         return parameters.empty();
     }
 
-};
+    const std::map<int, RelevantLMG> &get_relevantLMGs() const {
+        return relevantLMGs;
+    }};
 
 #endif //SEARCH_ACTION_SCHEMA_H

@@ -21,14 +21,16 @@ typedef std::vector<int> GroundAtom;
  * @var name: Name of the parameter in the action schema definition.
  * @var index: Index of this parameter in the list of parameters in the schema.
  * @var type: Type related to this parameter.
+ * @var seed: bool indicating if the parameter is a seed or not.
  */
 struct Parameter {
-    Parameter(std::string name, int index, int type)
-            : name(std::move(name)), index(index), type(type) {}
+    Parameter(std::string name, int index, int type, bool seed)
+        : name(std::move(name)), index(index), type(type), seed(seed) {}
 
     std::string name;
     int index;
     int type;
+    bool seed;
 
     int get_index() {
         return index;
@@ -61,6 +63,28 @@ public:
     }
 };
 
+/**
+ * @brief Represent a relevant LMG that can be used to infer the non-seed parameters.
+ *
+ * @var parameters: Index of the non-seed parameter in the schema.
+ * @var precondition: Index of the precondition in the schema.
+ * @var counted_argument: Indexes of  argument in the precondition atom t.
+ * @var fixed_argument: Indexes of the argument in the precondition atom.
+ */
+struct RelevantLMG {
+    RelevantLMG() = default;
+    RelevantLMG(int precondition, std::vector<int> parameters,
+                std::vector<int> counted_argument, std::vector<int> fixed_argument)
+        : precondition(precondition), parameters(parameters), counted_argument(counted_argument),
+          fixed_argument(fixed_argument) {}
+
+    int precondition;
+    std::vector<int> parameters;
+    std::vector<int> counted_argument;
+    std::vector<int> fixed_argument;
+};
+
+
 
 /**
  * @brief A relation is a "table" with set of tuples corresponding to some
@@ -73,9 +97,9 @@ public:
 struct Relation {
     Relation() = default;
     Relation(int predicate_symbol,
-        std::unordered_set<GroundAtom, TupleHash> &&tuples)
-            : predicate_symbol(predicate_symbol),
-              tuples (std::move(tuples)) {}
+             std::unordered_set<GroundAtom, TupleHash> &&tuples)
+        : predicate_symbol(predicate_symbol),
+          tuples (std::move(tuples)) {}
 
     Relation(const Relation &) = default;
 

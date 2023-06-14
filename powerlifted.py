@@ -81,7 +81,14 @@ def parse_options():
                            help="flag if the actions should be treated as unit-cost actions")
     parser.add_argument("--validate", action="store_true",
                         help="flag if VAL should be called to validate the plan found")
+    parser.add_argument('--use-parameter-seeds', action='store_true',
+                        help='Use parameter seeds for lifted planning.')
     args = parser.parse_args()
+    if args.use_parameter_seeds and args.generator != "yannakakis":
+        sys.stdout.write("WARNING: Parameter seed sets only work with `yannakakis' generator. \n WARNING: Using yannakakis. \n" )
+        args.generator="yannakakis"
+        
+        
     if args.domain is None:
         args.domain = find_domain_filename(args.instance)
         if args.domain is None:
@@ -174,11 +181,16 @@ def main():
     if options.unit_cost:
         PYTHON_EXTRA_OPTIONS += ["--unit-cost"]
 
+    if options.use_parameter_seeds:
+        PYTHON_EXTRA_OPTIONS += ["--use-parameter-seeds"]
+        CPP_EXTRA_OPTIONS += ["--use-parameter-seeds", str(1)]
 
-    # Invoke the Python preprocessor
-    subprocess.call([os.path.join(build_dir, 'translator', 'translate.py'),
+    cmd = [os.path.join(build_dir, 'translator', 'translate.py'),
                      options.domain, options.instance, '--output-file', options.translator_file] + \
-                    PYTHON_EXTRA_OPTIONS)
+                    PYTHON_EXTRA_OPTIONS
+    print(f'Executing "{" ".join(cmd)}"')              
+    # Invoke the Python preprocessor
+    subprocess.call(cmd )
 
 
 

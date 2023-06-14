@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <vector>
+#include <map>
 
 using namespace std;
 
@@ -19,7 +20,7 @@ using namespace std;
  * @return
  */
 
-bool parse(Task &task, const ifstream &in)
+bool parse(Task &task, const ifstream &in, bool use_parameter_seed)
 {
 
     // String used to guarantee consistency throughout the parsing
@@ -80,18 +81,24 @@ bool parse(Task &task, const ifstream &in)
         return false;
     }
     cout << "Total number of action schemas: " << number_action_schemas << endl;
-    parse_action_schemas(task, number_action_schemas);
+    parse_action_schemas(task, number_action_schemas, use_parameter_seed);
 
     return true;
 }
 
-void parse_action_schemas(Task &task, int number_action_schemas)
+void parse_action_schemas(Task &task, int number_action_schemas, bool use_parameter_seeds)
 {
     vector<ActionSchema> actions;
     for (int i = 0; i < number_action_schemas; ++i) {
         string name;
-        int cost, args, precond_size, eff_size;
+        int cost, args, precond_size, eff_size, seed_size;
+        if (use_parameter_seeds) {
+            cin >> name >> cost >> args >> precond_size >> eff_size >> seed_size;
+        }
+        else{
         cin >> name >> cost >> args >> precond_size >> eff_size;
+            seed_size = args;
+        }
         vector<Parameter> parameters;
         vector<Atom> preconditions, effects;
         vector<pair<int, int>> inequalities;
@@ -101,9 +108,15 @@ void parse_action_schemas(Task &task, int number_action_schemas)
             negative_nul_eff(task.predicates.size(), false);
         for (int j = 0; j < args; ++j) {
             string param_name;
-            int index, type;
-            cin >> param_name >> index >> type;
-            parameters.emplace_back(param_name, index, type);
+            int index, type, seed;
+            if (use_parameter_seeds) {
+                cin >> param_name >> index >> type >> seed;
+            }
+            else{
+                cin >> param_name >> index >> type;
+                seed = 0;
+            }
+            parameters.emplace_back(param_name, index, type, seed == 1);
         }
         for (int j = 0; j < precond_size; ++j) {
             string precond_name;
@@ -191,6 +204,31 @@ void parse_action_schemas(Task &task, int number_action_schemas)
             }
             effects.emplace_back(std::move(arguments), std::move(eff_name), index, negated);
         }
+        map<int, RelevantLMG> relevantLMGs;
+        if (use_parameter_seeds &&  (args-seed_size > 0)){
+            for (int k = 0; k < (args-seed_size); ++k) {
+                int parameter_index, precondition_index, argument_index, fixed_args_size;
+                cin >> parameter_index >> precondition_index >> argument_index >> fixed_args_size;
+                if (relevantLMGs.count(precondition_index)){
+                    relevantLMGs[precondition_index].parameters.emplace_back(parameter_index);
+                    relevantLMGs[precondition_index].counted_argument.emplace_back(argument_index);
+                    int fixed_argument;
+                    for (int f=0; f < fixed_args_size; f++){
+                        cin >> fixed_argument;
+                    }
+                } else {
+                    RelevantLMG r;
+                    r.parameters = vector<int>{parameter_index};
+                    r.precondition = precondition_index;
+                    r.counted_argument = vector<int>{argument_index};
+                    r.fixed_argument = vector<int>(fixed_args_size);
+                    for (int f=0; f < fixed_args_size; f++){
+                        cin >> r.fixed_argument[f];
+                    }
+                    relevantLMGs[precondition_index] = r;
+                }
+            }
+        }
         ActionSchema a(name,
                        i,
                        cost,
@@ -201,7 +239,8 @@ void parse_action_schemas(Task &task, int number_action_schemas)
                        positive_nul_precond,
                        negative_nul_precond,
                        positive_nul_eff,
-                       negative_nul_eff);
+                       negative_nul_eff,
+                       relevantLMGs);
         actions.push_back(a);
     }
     task.initialize_action_schemas(actions);

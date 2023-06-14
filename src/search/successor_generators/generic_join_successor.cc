@@ -8,10 +8,12 @@
 #include "../database/table.h"
 #include "../states/state.h"
 #include "../task.h"
+#include "../utils/timer.h"
 
 #include <algorithm>
 #include <cassert>
 #include <vector>
+#include <unordered_map>
 
 using namespace std;
 
@@ -36,8 +38,16 @@ Table GenericJoinSuccessor::instantiate(const ActionSchema &action,
     const auto& actiondata = action_data[action.get_index()];
 
     vector<Table> tables(0);
-    auto res = parse_precond_into_join_program(actiondata, state, tables);
-
+    // utils::Timer parse_join_timer;
+    bool res;
+    if (action.get_relevantLMGs().size() >0){
+        res = parse_precond_into_join_program_with_seed(actiondata, state, tables);
+    }
+    else{
+        res = parse_precond_into_join_program(actiondata, state, tables);
+    }
+    // parse_join_timer.stop();
+    // cout << "Time to parse join program: " << parse_join_timer() << endl;
     if (!res) return Table::EMPTY_TABLE();
 
     assert(!tables.empty());
@@ -137,8 +147,10 @@ PrecompiledActionData GenericJoinSuccessor::precompile_action_data(const ActionS
     data.is_ground = action.get_parameters().empty();
     if (data.is_ground) return data; // We won't need anything from this action
 
-
-    for (const Atom &p : action.get_precondition()) {
+    std::map<int, RelevantLMG> relevantLMGs = action.get_relevantLMGs();
+    int r = 0;
+    for (std::size_t i = 0; i < action.get_precondition().size(); ++i) {
+        const Atom &p =  action.get_precondition()[i];
         bool is_ineq = (p.get_name() == "=");
         if (p.is_negated() and !is_ineq) {
             throw std::runtime_error("Actions with negated preconditions not supported yet");
@@ -147,6 +159,10 @@ PrecompiledActionData GenericJoinSuccessor::precompile_action_data(const ActionS
         // Nullary atoms are handled differently, they don't result in DB tables
         if (!p.is_ground() and !is_ineq) {
             data.relevant_precondition_atoms.push_back(p);
+            if (relevantLMGs.count(i)){
+                data.relevant_LMGs[r] = relevantLMGs[i];
+            }
+            ++r;
         }
     }
 
@@ -221,7 +237,95 @@ bool GenericJoinSuccessor::parse_precond_into_join_program(
 
         if (tuples.empty()) return false;
 
+        tables[i] = Table(std::move(tuples), std::move(indices));;
+    }
+
+
+    return true;
+}
+
+
+
+bool GenericJoinSuccessor::parse_precond_into_join_program_with_seed(
+    const PrecompiledActionData &adata, const DBState &state, std::vector<Table>& tables)
+{
+    /*
+     * Parse the state and the atom preconditions into a set of tables
+     * to perform the join-program more easily.
+     *
+     * We first obtain all indices in the precondition that are constants.
+     * Then, we create the table applying the projection over the arguments
+     * that satisfy the instantiation of the constants. There are two cases
+     * for the projection:
+     *    1. The table comes from the static information; or
+     *    2. The table comes directly from the current state.
+     *
+     */
+    if (adata.statically_inapplicable) return false;
+
+    tables = adata.precompiled_db;  // This performs the copy that we'll return
+
+    unordered_map<int, int> map_parameter_to_table;
+
+    for (auto const& [i, r_lmg] : adata.relevant_LMGs) {
+        // First fill in the fluents with LMGs
+        const Atom &atom = adata.relevant_precondition_atoms[i];
+        if (is_static(atom.get_predicate_symbol_idx())){
+            continue;
+        }
+
+        vector<GroundAtom> tuples;
+        vector<int> constants, indices;
+
+        get_indices_and_constants_in_preconditions(indices, constants, atom);
+        select_tuples(state, atom, tuples, constants);
+
+        if (tuples.empty()) return false;
         tables[i] = Table(std::move(tuples), std::move(indices));
+        for (int j : r_lmg.parameters){
+            map_parameter_to_table[j] = i;
+        }
+    }
+
+//    for (unsigned i:adata.fluent_tables) {
+    for (size_t i = 0; i < tables.size(); ++i) {
+
+        const Atom &atom = adata.relevant_precondition_atoms[i];
+        // In the current implementation, it is either static or fluent
+        // if (std::count(adata.fluent_tables.begin(), adata.fluent_tables.end(), i)) {
+        if (!is_static(atom.get_predicate_symbol_idx())) {
+            // Let's fill in those (currently empty) tables that correspond to
+            // fluent symbols in the precondition
+            if (tables[i].tuples.size() > 0){
+                continue ;
+            }
+
+            vector<GroundAtom> tuples;
+            vector<int> constants, indices;
+
+            // TODO the call next line should be performed at preprocessing as well. We should keep in
+            //      adata the vector of constants and indices *for each precondition atom*
+            get_indices_and_constants_in_preconditions(indices, constants, atom);
+            select_tuples(state, atom, tuples, constants);
+
+            if (tuples.empty())
+                return false;
+
+            tables[i] = Table(std::move(tuples), std::move(indices));
+        }
+
+        if (map_parameter_to_table.size() > 0 ) {
+            for (const int index : tables[i].tuple_index) {
+                unordered_map<int, int>::const_iterator it = map_parameter_to_table.find(index);
+                if (it != map_parameter_to_table.end() && tables[it->second].tuples.size() > 0) {
+                    size_t k = tables[i].tuples.size();
+                    size_t s = semi_join(tables[i], tables[it->second]);
+                    if (s > k) {
+                        cerr << "ERROR in Parse join" << endl;
+                    }
+                }
+            }
+        }
     }
 
     return true;

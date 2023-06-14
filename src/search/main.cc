@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     Task task(domain_name, task_name);
     cout << task.get_domain_name() << " " << task.get_task_name() << endl;
 
-    bool parsed = parse(task, task_file);
+    bool parsed = parse(task, task_file,  opt.get_use_parameter_seeds());
     if (!parsed) {
         cerr << "Parser failed." << endl;
         exit(-1);
