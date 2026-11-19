@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
+#include <iostream>
 #include <vector>
 #include <unordered_map>
 
@@ -414,6 +416,13 @@ void GenericJoinSuccessor::order_tuple_by_free_variable_order(const vector<int> 
                                                             const vector<int> &tuple_with_const,
                                                             vector<int> &ordered_tuple) {
     for (size_t i = 0; i < free_var_indices.size(); ++i) {
+        if (free_var_indices[i] < 0 ||
+            static_cast<size_t>(free_var_indices[i]) >= ordered_tuple.size()) {
+            std::cerr << "Invalid action parameter index " << free_var_indices[i]
+                      << " (action has " << ordered_tuple.size()
+                      << " bound variables)." << std::endl;
+            exit(1);
+        }
         ordered_tuple[free_var_indices[i]] = tuple_with_const[map_indices_to_position[i]];
     }
 }

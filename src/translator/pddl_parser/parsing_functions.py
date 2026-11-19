@@ -252,6 +252,10 @@ def parse_action(alist, type_dict, predicate_dict):
     if parameters_tag_opt == ":parameters":
         parameters = parse_typed_list(next(iterator),
                                       only_variables=True)
+        check_for_duplicates(
+            [p.name for p in parameters],
+            errmsg="error: duplicate parameter %r",
+            finalmsg="please check the :parameters of action %s" % name)
         precondition_tag_opt = next(iterator)
     else:
         parameters = []
